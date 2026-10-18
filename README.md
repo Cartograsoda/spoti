@@ -2,6 +2,8 @@
 
 Spotify in your terminal. It has a mouse, a status line that actually tells you what happened, and your top songs of the year whenever you want them, not whenever Spotify's marketing team decides it's December.
 
+It's also light. The Spotify desktop app can sit at around 1 GB of RAM on Windows, just to play songs. spoti plays the same songs in 50-60 MB.
+
 It's a fork of [spotify-player](https://github.com/aome510/spotify-player) by aome510, who did the hard part. This fork adds the things I wanted and fixes the things that annoyed me.
 
 ![Top tracks](docs/screenshots/top-tracks.png)
@@ -36,31 +38,49 @@ Want more or fewer than 100? Set `top_tracks_limit` in `app.toml`.
 
 ## Getting it running
 
-You need Spotify Premium (streaming doesn't work without it) and [Rust](https://rustup.rs).
+You need Spotify Premium (streaming doesn't work without it) and [Rust](https://rustup.rs). Five minutes, tops.
+
+**1. Build it**
 
 ```sh
-git clone <this repo>
-cd spotify-player
+git clone https://github.com/Cartograsoda/spoti
+cd spoti
 cargo install --path spotify_player --locked --features image
-spotify_player
 ```
 
 `--features image` gets you album covers in the terminal. The binary is called `spotify_player`. I copied mine to `spoti` because life is short.
 
-## Get your own client ID (seriously, do this)
+**2. Make your own Spotify client ID (don't skip this)**
 
-Out of the box, the app borrows ncspot's client ID, the same one every other terminal Spotify user borrows. Spotify caps how many requests one ID can make, so you end up waiting in line behind strangers. That's why the app can sit there doing nothing for 30 seconds on launch. It's not frozen, it's queueing.
+A client ID is how Spotify knows which app is asking for your data, and Spotify caps how many requests each one can make. Without your own, the app borrows ncspot's, the same one every other terminal Spotify user borrows, so you wait in line behind strangers. That's the "it sits there doing nothing for 30 seconds" experience. It's not frozen, it's queueing.
 
-1. Create an app on the [Spotify developer dashboard](https://developer.spotify.com/dashboard).
-2. When it asks which APIs you'll use, tick **Web API** only.
-3. Add `http://127.0.0.1:8989/login` as a redirect URI. Exactly that, character for character.
-4. Put the client ID in `~/.config/spotify-player/app.toml`:
-   ```toml
-   client_id = "your-client-id"
-   ```
-5. Run `spotify_player authenticate` and approve everything in the browser. It asks more than once; that's normal.
+- Create an app on the [Spotify developer dashboard](https://developer.spotify.com/dashboard).
+- When it asks which APIs you'll use, tick **Web API** only.
+- Add `http://127.0.0.1:8989/login` as a redirect URI. Exactly that, character for character.
 
-New Spotify apps aren't allowed to read some things, like songs in other people's playlists or an artist's top tracks. Those requests quietly fall back to the shared ID, so they can still be slow sometimes. Your own playlists stay fast.
+**3. Tell spoti about it**
+
+Copy the client ID from the dashboard into `~/.config/spotify-player/app.toml` (create the file if it isn't there):
+
+```toml
+client_id = "your-client-id"
+```
+
+**4. Log in**
+
+```sh
+spotify_player authenticate
+```
+
+Approve everything in the browser. It asks more than once; that's normal.
+
+**5. Play something**
+
+```sh
+spotify_player
+```
+
+One catch: Spotify doesn't let new apps read some things, like songs in other people's playlists or an artist's top tracks. Those requests quietly fall back to the shared ID, so they can still be slow sometimes. Your own playlists stay fast.
 
 ## Keys worth knowing
 
