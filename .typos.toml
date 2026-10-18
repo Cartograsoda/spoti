@@ -1,0 +1,7 @@
+[default.extend-words]
+# Don't correct these words
+iterm = "iterm"
+Iterm = "Iterm"
+typ = "typ"
+ratatui = "ratatui"
+Skool = "Skool"

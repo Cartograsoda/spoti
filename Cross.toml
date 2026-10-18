@@ -1,0 +1,8 @@
+[build.env]
+passthrough = [
+  "CROSS_DEBUG",
+  "RUST_BACKTRACE",
+]
+
+[target.aarch64-unknown-linux-gnu]
+dockerfile = "./ci/Dockerfile-cross"

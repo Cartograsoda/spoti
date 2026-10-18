@@ -1,0 +1,71 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    name: Publishing ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            dependencies: "libssl-dev libasound2-dev libdbus-1-dev libxcb-shape0-dev libxcb-xfixes0-dev"
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            cross_arch: true
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: matrix.dependencies
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.dependencies }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.cross_arch
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build
+        run: ${{ matrix.cross_arch && 'cross' || 'cargo' }} build --locked --release --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          case ${{ matrix.target }} in
+          *-pc-windows-*)
+            7z -y a spotify_player-${{ matrix.target }}.zip spotify_player.exe
+            sha256sum spotify_player-${{ matrix.target }}.zip > spotify_player-${{ matrix.target }}.sha256
+            ;;
+          *)
+            tar czvf spotify_player-${{ matrix.target }}.tar.gz spotify_player
+            shasum -a 256 spotify_player-${{ matrix.target }}.tar.gz > spotify_player-${{ matrix.target }}.sha256
+            ;;
+          esac;
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/${{ matrix.target }}/release/spotify_player-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
