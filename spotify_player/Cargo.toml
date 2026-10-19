@@ -57,6 +57,9 @@ serde_json = "1.0.151"
 regex = "1.13.1"
 daemonize = { version = "0.5.0", optional = true }
 rustfft = { version = "6", optional = true }
+# same versions librespot-playback uses, for the device-following audio sink
+rodio = { version = "0.21", optional = true, default-features = false, features = ["playback"] }
+cpal = { version = "0.16", optional = true }
 ttl_cache = "0.5.1"
 clap_complete = "4.6.9"
 which = "8.0.6"
@@ -92,7 +95,7 @@ optional = true
 [features]
 alsa-backend = ["streaming", "librespot-playback/alsa-backend"]
 pulseaudio-backend = ["streaming", "librespot-playback/pulseaudio-backend"]
-rodio-backend = ["streaming", "librespot-playback/rodio-backend"]
+rodio-backend = ["streaming", "librespot-playback/rodio-backend", "dep:rodio", "dep:cpal"]
 portaudio-backend = ["streaming", "librespot-playback/portaudio-backend"]
 jackaudio-backend = ["streaming", "librespot-playback/jackaudio-backend"]
 rodiojack-backend = ["streaming", "librespot-playback/rodiojack-backend"]

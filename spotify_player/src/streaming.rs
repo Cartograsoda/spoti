@@ -6,9 +6,10 @@ use librespot_core::config::DeviceType;
 use librespot_core::{spotify_uri, Session, SpotifyUri};
 use librespot_playback::audio_backend::Sink;
 use librespot_playback::mixer::MixerConfig;
+#[cfg(not(feature = "rodio-backend"))]
+use librespot_playback::{audio_backend, config::AudioFormat};
 use librespot_playback::{
-    audio_backend,
-    config::{AudioFormat, Bitrate, PlayerConfig},
+    config::{Bitrate, PlayerConfig},
     mixer::{self, Mixer},
     player,
 };
@@ -181,6 +182,7 @@ pub async fn new_connection(
     );
     mixer.set_volume(volume);
 
+    #[cfg(not(feature = "rodio-backend"))]
     let backend = audio_backend::find(None).expect("should be able to find an audio backend");
     let player_config = PlayerConfig {
         bitrate: device
@@ -206,6 +208,11 @@ pub async fn new_connection(
             session.clone(),
             mixer.get_soft_volume(),
             move || -> Box<dyn Sink> {
+                // librespot's rodio sink stays on the device that was default at
+                // startup and hangs when it disappears; ours follows the default.
+                #[cfg(feature = "rodio-backend")]
+                let real: Box<dyn Sink> = Box::new(crate::audio_output::DefaultDeviceSink::new());
+                #[cfg(not(feature = "rodio-backend"))]
                 let real = backend(None, AudioFormat::default());
                 if let Some(ref bands) = vis_bands {
                     Box::new(crate::ui::streaming::VisualizationSink::new(

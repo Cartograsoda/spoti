@@ -1,3 +1,5 @@
+#[cfg(feature = "rodio-backend")]
+mod audio_output;
 mod auth;
 mod cli;
 mod client;
