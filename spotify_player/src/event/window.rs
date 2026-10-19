@@ -401,8 +401,8 @@ pub fn handle_command_for_track_list_window(
     }
     match command {
         Command::ChooseSelected => {
-            // for a track list, `ChooseSelected` on a track
-            // will start a `URIs` playback containing only that track.
+            // for a track list, `ChooseSelected` on a track plays that track
+            // followed by its radio, since the list (search results) is not a context.
             // This is different from the track table, which handles
             // `ChooseSelected` by starting a `URIs` playback
             // containing all the tracks in the table.
@@ -410,10 +410,7 @@ pub fn handle_command_for_track_list_window(
             // Track lists are used for search results, so clear the Tracks context
             state.player.write().currently_playing_tracks_id = None;
 
-            client_pub.send(ClientRequest::Player(PlayerRequest::StartPlayback(
-                Playback::URIs(vec![tracks[id].id.clone().into()], None),
-                None,
-            )))?;
+            client_pub.send(ClientRequest::PlayTrackWithRadio(tracks[id].id.clone()))?;
         }
         Command::ShowActionsOnSelectedItem => {
             let actions = command::construct_track_actions(tracks[id], data);

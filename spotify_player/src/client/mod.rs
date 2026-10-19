@@ -481,6 +481,19 @@ impl AppClient {
         Ok(true)
     }
 
+    /// Handle a player request and store the resulting playback in the app state
+    async fn handle_player_request_with_state(
+        &self,
+        state: &SharedState,
+        request: PlayerRequest,
+    ) -> Result<()> {
+        let playback = state.player.read().buffered_playback.clone();
+        let playback = self.handle_player_request(request, playback).await?;
+        state.player.write().buffered_playback = playback;
+        self.update_playback_non_blocking(state);
+        Ok(())
+    }
+
     /// Handle a player request, return a new playback metadata on success
     pub async fn handle_player_request(
         &self,
@@ -638,10 +651,26 @@ impl AppClient {
                 state.data.write().user_data.user = Some(user);
             }
             ClientRequest::Player(request) => {
-                let playback = state.player.read().buffered_playback.clone();
-                let playback = self.handle_player_request(request, playback).await?;
-                state.player.write().buffered_playback = playback;
-                self.update_playback_non_blocking(state);
+                self.handle_player_request_with_state(state, request)
+                    .await?;
+            }
+            ClientRequest::PlayTrackWithRadio(track_id) => {
+                let seed_uri = track_id.uri();
+                let radio = self.radio_track_ids(&seed_uri).await.unwrap_or_else(|err| {
+                    tracing::warn!("Failed to get radio for {seed_uri}, playing it alone: {err:#}");
+                    Vec::new()
+                });
+                let ids = std::iter::once(track_id.clone())
+                    .chain(radio.into_iter().filter(|id| *id != track_id))
+                    .map(PlayableId::Track)
+                    .collect();
+                let limit = config::get_config().app_config.tracks_playback_limit;
+                let playback = Playback::URIs(ids, None).uri_offset(seed_uri, limit);
+                self.handle_player_request_with_state(
+                    state,
+                    PlayerRequest::StartPlayback(playback, None),
+                )
+                .await?;
             }
             ClientRequest::GetCurrentPlayback => {
                 self.retrieve_current_playback(state, true).await?;
@@ -1238,8 +1267,8 @@ impl AppClient {
         Ok(())
     }
 
-    /// Get recommendation (radio) tracks based on a seed
-    pub async fn radio_tracks(&self, seed_uri: String) -> Result<Vec<Track>> {
+    /// Get the IDs of recommendation (radio) tracks based on a seed
+    async fn radio_track_ids(&self, seed_uri: &str) -> Result<Vec<TrackId<'static>>> {
         #[derive(Debug, Deserialize)]
         struct TrackData {
             original_gid: String,
@@ -1282,10 +1311,18 @@ impl AppClient {
         }
 
         // Parse a list consisting of IDs of tracks inside the radio station
-        let track_ids = serde_json::from_slice::<RadioStationResponse>(&response.payload[0])?
-            .tracks
-            .into_iter()
-            .filter_map(|t| TrackId::from_id(t.original_gid).ok());
+        Ok(
+            serde_json::from_slice::<RadioStationResponse>(&response.payload[0])?
+                .tracks
+                .into_iter()
+                .filter_map(|t| TrackId::from_id(t.original_gid).ok())
+                .collect(),
+        )
+    }
+
+    /// Get recommendation (radio) tracks based on a seed
+    pub async fn radio_tracks(&self, seed_uri: String) -> Result<Vec<Track>> {
+        let track_ids = self.radio_track_ids(&seed_uri).await?;
 
         // Retrieve tracks based on IDs
         #[allow(deprecated)]
