@@ -23,6 +23,7 @@ Want more or fewer than 100? Set `top_tracks_limit` in `app.toml`.
 - **A mouse that does things.** A clickable bar of tabs and buttons: Library, Search, Liked, Top, Queue, Lyrics, play/pause, shuffle, volume, devices. Double-click plays or opens, right-click opens actions, scroll moves through lists, scroll over the player changes the volume, click the progress bar to seek. Whatever's under the cursor lights up, so you know what you're about to click.
 - **A status line.** Every action reports back: `Play: done`, `Search "hey you": done`, red with a reason when something fails, and a countdown when Spotify is rate limiting you. No more pressing play five times and wondering.
 - **A random button.** Plays a random song from the list you're looking at, or from what's playing, or from your liked songs. For when you have 3,000 liked songs and zero decisions left in you.
+- **A queue that fills itself.** Pick a song from search, or paste a track link, and Spotify's recommendations for it line up behind it, like in the official app. No more silence after one song.
 - **Fewer rate limits.** Play, pause, skip, seek and volume go straight to the built-in player instead of taking a round trip through Spotify's servers. Your library loads from cache on startup when it's fresh, and bursts of refreshes get merged into one.
 - **No silent blank pages.** If Spotify sends back a broken playlist or a page fails to load, the status line says so, instead of the app staring into the void forever.
 

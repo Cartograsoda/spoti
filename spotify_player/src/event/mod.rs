@@ -755,10 +755,7 @@ fn handle_global_command(
                         // Clear Tracks context when playing from clipboard link
                         state.player.write().currently_playing_tracks_id = None;
 
-                        client_pub.send(ClientRequest::Player(PlayerRequest::StartPlayback(
-                            Playback::URIs(vec![id.into()], None),
-                            None,
-                        )))?;
+                        client_pub.send(ClientRequest::PlayTrackWithRadio(id))?;
                     }
                     // for playlist/artist/album link, go to the corresponding context page
                     "playlist" => {

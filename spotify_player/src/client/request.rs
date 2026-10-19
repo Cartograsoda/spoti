@@ -48,6 +48,9 @@ pub enum ClientRequest {
     AddToLibrary(Item),
     DeleteFromLibrary(ItemId),
     Player(PlayerRequest),
+    /// Play a single track followed by its radio, the way the official clients
+    /// queue recommendations after a song picked outside of a playlist or album
+    PlayTrackWithRadio(TrackId<'static>),
     GetCurrentUserQueue,
     GetLyrics {
         track_id: TrackId<'static>,
@@ -80,6 +83,7 @@ impl ClientRequest {
                 PlayerRequest::TransferPlayback(..) => "Switch device",
                 PlayerRequest::StartPlayback(..) => "Play",
             },
+            Self::PlayTrackWithRadio(_) => "Play",
             Self::Search(query) => return Some(format!("Search \"{query}\"")),
             Self::AddPlayableToQueue(_) | Self::AddAlbumToQueue(_) => "Add to queue",
             Self::AddPlayableToPlaylist(..) => "Add to playlist",
