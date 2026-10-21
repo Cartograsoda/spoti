@@ -79,8 +79,13 @@ pub fn relaunch() -> Result<bool> {
     sync_terminal_settings(&terminal);
 
     let mut parts = vec!["-w new new-tab --title Spoti --suppressApplicationTitle".to_string()];
-    // the profile of the tab the app was started from, so the new window looks the same
-    if let Ok(profile) = std::env::var("WT_PROFILE_ID") {
+    // the profile of the tab the app was started from, so the new window looks the same. Tabs
+    // handed over by Windows don't say, so use the default one: without `-p`, Terminal only
+    // picks a profile whose command line matches, and none runs this app
+    let profile = std::env::var("WT_PROFILE_ID")
+        .ok()
+        .or_else(|| default_profile(&terminal));
+    if let Some(profile) = profile {
         parts.push(format!("-p {}", quote(&profile)));
     }
     let exe = std::env::current_exe().context("find the app's own path")?;
@@ -188,6 +193,21 @@ fn sync_terminal_settings(terminal: &Path) {
             terminal.with_file_name("settings").join("settings.json"),
         );
     }
+}
+
+/// The `defaultProfile` of the synced settings. Searched for rather than parsed, since the file
+/// may have comments.
+fn default_profile(terminal: &Path) -> Option<String> {
+    let settings =
+        std::fs::read_to_string(terminal.with_file_name("settings").join("settings.json")).ok()?;
+    let value = settings
+        .split_once("\"defaultProfile\"")?
+        .1
+        .trim_start()
+        .strip_prefix(':')?
+        .trim_start()
+        .strip_prefix('"')?;
+    Some(value.split_once('"')?.0.to_string())
 }
 
 /// Quotes an argument so `CommandLineToArgvW` reads it back unchanged. Windows Terminal also

@@ -81,9 +81,16 @@ if (-not (Test-Path $icon)) {
 
 # Windows matches running windows to a pinned shortcut by the exe it points at, so pinning this
 # one puts the green icon on the portable Terminal's taskbar button.
+# Without -p, Terminal only picks a profile whose command line matches, so the window would get
+# the plain default colours instead of the user's.
+$profileArg = ''
+$settings = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+if ((Test-Path $settings) -and ((Get-Content $settings -Raw) -match '"defaultProfile"\s*:\s*"([^"]+)"')) {
+    $profileArg = "-p `"$($Matches[1])`" "
+}
 $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)
 $link.TargetPath = $terminal
-$link.Arguments = "-w new new-tab --title Spoti --suppressApplicationTitle `"$Exe`" --in-place"
+$link.Arguments = "-w new new-tab --title Spoti --suppressApplicationTitle $profileArg`"$Exe`" --in-place"
 $link.WorkingDirectory = $env:USERPROFILE
 $link.IconLocation = "$icon,0"
 $link.Save()
