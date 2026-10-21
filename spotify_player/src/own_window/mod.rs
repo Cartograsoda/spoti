@@ -70,7 +70,7 @@ pub fn setup(remove: bool) -> Result<()> {
 /// Reopens the TUI in the portable Terminal if [`setup`] installed one and the app was started
 /// inside Windows Terminal. Returns whether it did, in which case this process should exit.
 pub fn relaunch() -> Result<bool> {
-    if std::env::var_os("WT_SESSION").is_none() {
+    if !in_windows_terminal() {
         return Ok(false);
     }
     let Some(terminal) = portable_terminal() else {
@@ -101,7 +101,7 @@ pub fn relaunch() -> Result<bool> {
 
 /// Once, after the TUI quits, tells Windows Terminal users that `setup-window` exists.
 pub fn print_setup_hint_once(cache_folder: &Path) {
-    if std::env::var_os("WT_SESSION").is_none() || portable_terminal().is_some() {
+    if !in_windows_terminal() || portable_terminal().is_some() {
         return;
     }
     let marker = cache_folder.join("setup-window-hint-shown");
@@ -113,6 +113,54 @@ pub fn print_setup_hint_once(cache_folder: &Path) {
          so it stops hiding among your other terminal windows.",
         exe_name()
     );
+}
+
+/// Tabs that Windows Terminal opens itself have `WT_SESSION` set. Consoles that Windows starts
+/// and then hands over to it (cmd from the Start menu, when Terminal is the default) don't, but
+/// their hidden console window is owned by the Terminal's window.
+fn in_windows_terminal() -> bool {
+    std::env::var_os("WT_SESSION").is_some()
+        || console_owner_exe().is_some_and(|exe| {
+            exe.file_name()
+                .is_some_and(|name| name.eq_ignore_ascii_case("WindowsTerminal.exe"))
+        })
+}
+
+#[allow(unsafe_code)] // Win32 calls; the process handle is closed before returning
+fn console_owner_exe() -> Option<PathBuf> {
+    use std::os::windows::ffi::OsStringExt;
+    use windows_sys::Win32::{
+        Foundation::CloseHandle,
+        System::Console::GetConsoleWindow,
+        System::Threading::{
+            OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+            PROCESS_QUERY_LIMITED_INFORMATION,
+        },
+        UI::WindowsAndMessaging::{GetWindow, GetWindowThreadProcessId, GW_OWNER},
+    };
+
+    unsafe {
+        let owner = GetWindow(GetConsoleWindow(), GW_OWNER);
+        if owner.is_null() {
+            return None;
+        }
+        let mut pid = 0;
+        GetWindowThreadProcessId(owner, &raw mut pid);
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if process.is_null() {
+            return None;
+        }
+        let mut path = [0u16; 1024];
+        let mut len = path.len() as u32;
+        let ok = QueryFullProcessImageNameW(
+            process,
+            PROCESS_NAME_WIN32,
+            path.as_mut_ptr(),
+            &raw mut len,
+        );
+        CloseHandle(process);
+        (ok != 0).then(|| std::ffi::OsString::from_wide(&path[..len as usize]).into())
+    }
 }
 
 /// Copies the Store Terminal's settings over the portable one's, so the window keeps the user's
