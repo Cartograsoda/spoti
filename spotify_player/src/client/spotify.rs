@@ -258,7 +258,7 @@ impl WebApiClient {
             .any(|endpoint| url.starts_with(endpoint))
     }
 
-    fn fallback_status(error: &ClientError) -> Option<reqwest::StatusCode> {
+    pub(super) fn fallback_status(error: &ClientError) -> Option<reqwest::StatusCode> {
         match error {
             ClientError::Http(error) => match error.as_ref() {
                 HttpError::StatusCode(response) if response.status().is_client_error() => {
@@ -609,7 +609,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn current_user_playlists_uses_ncspot_without_calling_primary() {
+    async fn configured_current_user_playlists_uses_ncspot_without_calling_primary() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/v1/me/playlists"))
@@ -629,7 +629,8 @@ mod tests {
         let client = WebApiClient::new(
             client_with_token(&server, false, "primary-token").await,
             Some(client_with_token(&server, true, "fallback-token").await),
-        );
+        )
+        .with_ncspot_only_get_endpoints(vec!["me/playlists".to_string()]);
 
         assert_eq!(
             client.api_get("me/playlists", &Query::new()).await.unwrap(),

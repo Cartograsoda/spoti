@@ -29,6 +29,8 @@ use parking_lot::Mutex;
 use rspotify::model::LibraryId;
 use rspotify::{http::Query, prelude::*};
 
+mod artist;
+mod context_requests;
 mod handlers;
 mod middleware;
 pub use middleware::RATE_LIMITED_UNTIL;
@@ -750,12 +752,29 @@ impl AppClient {
                 // so a cache hit is always in sync with user_data.saved_tracks.
                 let cache_miss = !state.data.read().caches.context.contains_key(&uri);
                 if cache_miss {
+                    let mut cache_duration = *TTL_CACHE_DURATION;
                     let ctx = match context {
                         ContextId::Playlist(playlist_id) => {
                             self.playlist_context(playlist_id).await?
                         }
                         ContextId::Album(album_id) => self.album_context(album_id).await?,
-                        ContextId::Artist(artist_id) => self.artist_context(artist_id).await?,
+                        ContextId::Artist(artist_id) => {
+                            let loaded = artist::load(
+                                &self.api_client,
+                                artist_id.as_ref(),
+                                self.artist_albums(artist_id.as_ref()),
+                                |context| {
+                                    state.data.write().caches.context.insert(
+                                        uri.clone(),
+                                        context.clone(),
+                                        artist::PARTIAL_ARTIST_TTL,
+                                    );
+                                },
+                            )
+                            .await?;
+                            cache_duration = loaded.ttl;
+                            loaded.context
+                        }
                         ContextId::Tracks(tracks_id) => match tracks_id.uri.as_str() {
                             USER_TOP_TRACKS_URI => Context::Tracks {
                                 tracks: self.current_user_top_tracks().await?,
@@ -819,7 +838,7 @@ impl AppClient {
                         .write()
                         .caches
                         .context
-                        .insert(uri, ctx, *TTL_CACHE_DURATION);
+                        .insert(uri, ctx, cache_duration);
                 }
             }
             ClientRequest::Search(query) => match self.search(&query).await {
@@ -1749,47 +1768,14 @@ impl AppClient {
 
     /// Get an artist context data
     pub async fn artist_context(&self, artist_id: ArtistId<'_>) -> Result<Context> {
-        let artist_uri = artist_id.uri();
-        tracing::info!("Get artist context: {}", artist_uri);
-
-        // get the artist's information, including top tracks, related artists, and albums
-
-        let artist = self
-            .artist(artist_id.as_ref())
-            .await
-            .context("get artist")?
-            .into();
-
-        #[allow(deprecated)]
-        let top_tracks = self
-            .artist_top_tracks(artist_id.as_ref(), Some(rspotify::model::Market::FromToken))
-            .await
-            .context("get artist's top tracks")?
-            .into_iter()
-            .filter_map(Track::try_from_full_track)
-            .collect::<Vec<_>>();
-
-        #[allow(deprecated)]
-        let related_artists = self
-            .artist_related_artists(artist_id.as_ref())
-            .await
-            .ok()
-            .unwrap_or_default()
-            .into_iter()
-            .map(std::convert::Into::into)
-            .collect::<Vec<_>>();
-
-        let albums = self
-            .artist_albums(artist_id.as_ref())
-            .await
-            .context("get artist's albums")?;
-
-        Ok(Context::Artist {
-            artist,
-            top_tracks,
-            albums,
-            related_artists,
-        })
+        Ok(artist::load(
+            &self.api_client,
+            artist_id.as_ref(),
+            self.artist_albums(artist_id.as_ref()),
+            |_| {},
+        )
+        .await?
+        .context)
     }
 
     /// Get a show context data
