@@ -26,7 +26,7 @@ use anyhow::{Context as _, Result};
 use crossterm::event::KeyCode;
 
 use clipboard::{execute_copy_command, get_clipboard_content};
-use ratatui::widgets::ListState;
+use ratatui::widgets::{ListState, TableState};
 
 mod clipboard;
 mod mouse;
@@ -688,6 +688,12 @@ fn handle_global_command(
             if state.data.read().user_data.top_artists.is_empty() {
                 client_pub.send(ClientRequest::GetUserTopArtists)?;
             }
+        }
+        // the player event watcher fetches the data while the page is open
+        Command::FriendActivityPage => {
+            ui.new_page(PageState::Friends {
+                friend_table: TableState::default(),
+            });
         }
         Command::RecentlyPlayedTrackPage => {
             ui.new_page(PageState::Context {

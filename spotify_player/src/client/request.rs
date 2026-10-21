@@ -31,6 +31,7 @@ pub enum ClientRequest {
     GetUserSavedShows,
     GetUserFollowedArtists,
     GetUserTopArtists,
+    GetFriendActivity,
     GetContext(ContextId),
     GetCurrentPlayback,
     Search(String),

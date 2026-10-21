@@ -40,6 +40,9 @@ pub enum PageState {
     TopArtists {
         artist_list: ListState,
     },
+    Friends {
+        friend_table: TableState,
+    },
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -53,6 +56,7 @@ pub enum PageType {
     CommandHelp,
     Logs,
     TopArtists,
+    Friends,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -160,6 +164,7 @@ impl PageState {
             PageState::CommandHelp { .. } => PageType::CommandHelp,
             PageState::Logs { .. } => PageType::Logs,
             PageState::TopArtists { .. } => PageType::TopArtists,
+            PageState::Friends { .. } => PageType::Friends,
         }
     }
 
@@ -288,6 +293,7 @@ impl PageState {
             },
             Self::Lyrics { .. } => None,
             Self::TopArtists { artist_list } => Some(MutableWindowState::List(artist_list)),
+            Self::Friends { friend_table } => Some(MutableWindowState::Table(friend_table)),
             Self::CommandHelp { scroll_offset }
             | Self::Queue { scroll_offset }
             | Self::Logs { scroll_offset } => Some(MutableWindowState::Scroll(scroll_offset)),

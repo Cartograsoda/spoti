@@ -16,10 +16,10 @@ use super::{
     Borders, BrowsePageUIState, Cell, Constraint, Context, ContextPageUIState, DataReadGuard,
     Frame, Id, Layout, LibraryFocusState, MutableWindowState, Orientation, PageState, Paragraph,
     PlaylistFolderItem, Rect, Row, SearchFocusState, SharedState, Style, Table, Text, Track,
-    UIStateGuard,
+    UIStateGuard, Wrap,
 };
 use crate::command::Command;
-use crate::state::{BidiDisplay, ClickTarget, WindowFocus};
+use crate::state::{BidiDisplay, ClickTarget, FriendFeed, WindowFocus};
 use crate::ui::utils::to_bidi_string;
 
 const COMMAND_TABLE_CONSTRAINTS: [Constraint; 3] = [
@@ -552,6 +552,109 @@ pub fn render_top_artists_page(
         return;
     };
     utils::render_list_window(frame, list, chunks[1], len, artist_list);
+}
+
+pub fn render_friends_page(
+    is_active: bool,
+    frame: &mut Frame,
+    state: &SharedState,
+    ui: &mut UIStateGuard,
+    rect: Rect,
+) {
+    let rect = construct_and_render_block("Friend Activity", &ui.theme, Borders::ALL, frame, rect);
+
+    let data = state.data.read();
+    let all = match data.user_data.friend_activity {
+        FriendFeed::Ready(ref friends) if !friends.is_empty() => friends,
+        ref feed => {
+            let message = match feed {
+                FriendFeed::Loading => "Loading...",
+                FriendFeed::Failed => {
+                    "Spotify isn't sharing friend activity right now. It isn't an official \
+                     feature for apps, so it can stop working at any time."
+                }
+                FriendFeed::Ready(_) => {
+                    "Nothing here yet. Friends show up once you follow them on Spotify and \
+                     they share their listening activity."
+                }
+            };
+            frame.render_widget(Paragraph::new(message).wrap(Wrap { trim: true }), rect);
+            return;
+        }
+    };
+
+    let chunks = Layout::vertical([Constraint::Length(1), Constraint::Fill(0)]).split(rect);
+    frame.render_widget(
+        Paragraph::new("Double-click: play the song   Right-click: open what it's playing from")
+            .style(ui.theme.page_desc()),
+        chunks[0],
+    );
+
+    let now = chrono::Utc::now();
+    let friends = ui.search_filtered_items(all);
+    let n_friends = friends.len();
+    let rows = friends
+        .into_iter()
+        .map(|f| {
+            Row::new(vec![
+                Cell::from(f.name.clone()),
+                Cell::from(f.track.clone()),
+                Cell::from(f.artist.clone()),
+                Cell::from(f.context_name.clone()),
+                Cell::from(Text::from(time_ago(now - f.at)).alignment(Alignment::Right)),
+            ])
+        })
+        .collect::<Vec<_>>();
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Fill(2),
+            Constraint::Fill(3),
+            Constraint::Fill(2),
+            Constraint::Fill(2),
+            Constraint::Length(4),
+        ],
+    )
+    .header(
+        Row::new(vec![
+            Cell::from("Friend"),
+            Cell::from("Song"),
+            Cell::from("Artist"),
+            Cell::from("Playing from"),
+            Cell::from(Text::from("When").alignment(Alignment::Right)),
+        ])
+        .style(ui.theme.table_header()),
+    )
+    .column_spacing(2)
+    .row_highlight_style(ui.theme.selection(is_active));
+
+    ui.push_click_region(
+        chunks[1],
+        ClickTarget::Window {
+            focus: WindowFocus::Single,
+            len: n_friends,
+            header: 1,
+        },
+    );
+    let PageState::Friends { friend_table } = ui.current_page_mut() else {
+        return;
+    };
+    utils::render_table_window(frame, table, chunks[1], n_friends, friend_table);
+}
+
+/// How long ago a friend's song started, short enough for a narrow column
+fn time_ago(age: chrono::Duration) -> String {
+    let minutes = age.num_minutes();
+    // the feed has no "playing now" flag, so a song that started this recently counts
+    if minutes < 5 {
+        "now".to_string()
+    } else if minutes < 60 {
+        format!("{minutes}m")
+    } else if minutes < 24 * 60 {
+        format!("{}h", minutes / 60)
+    } else {
+        format!("{}d", minutes / (24 * 60))
+    }
 }
 
 pub fn render_library_page(

@@ -229,6 +229,21 @@ pub struct PlaylistFolderNode {
     pub children: Vec<PlaylistFolderNode>,
 }
 
+#[derive(Debug, Clone)]
+/// What a friend listened to last, from Spotify's friend activity feed
+pub struct FriendActivity {
+    pub name: String,
+    /// `None` for podcast episodes and local files
+    pub track_id: Option<TrackId<'static>>,
+    pub track: String,
+    pub artist: String,
+    /// The playlist, album or artist the track is played from, or its album if that isn't
+    /// something the app can open (a friend's liked songs, a radio station, ...)
+    pub context: Option<ContextId>,
+    pub context_name: String,
+    pub at: chrono::DateTime<chrono::Utc>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 /// A Spotify category
 pub struct Category {
@@ -305,6 +320,21 @@ impl ContextId {
             Self::Playlist(id) => id.uri(),
             Self::Tracks(id) => id.uri.clone(),
             Self::Show(id) => id.uri(),
+        }
+    }
+
+    /// Parse a playlist, album, artist or show URI
+    pub fn from_uri(uri: &str) -> Option<Self> {
+        if let Ok(id) = PlaylistId::from_uri(uri) {
+            Some(Self::Playlist(id.into_static()))
+        } else if let Ok(id) = AlbumId::from_uri(uri) {
+            Some(Self::Album(id.into_static()))
+        } else if let Ok(id) = ArtistId::from_uri(uri) {
+            Some(Self::Artist(id.into_static()))
+        } else if let Ok(id) = ShowId::from_uri(uri) {
+            Some(Self::Show(id.into_static()))
+        } else {
+            None
         }
     }
 }
@@ -546,6 +576,16 @@ fn from_simplified_artists_to_artists(
 }
 
 impl BidiDisplay for Artist {}
+
+impl std::fmt::Display for FriendActivity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} {} {} {}",
+            self.name, self.track, self.artist, self.context_name
+        )
+    }
+}
 
 impl From<rspotify::model::SimplifiedPlaylist> for Playlist {
     fn from(playlist: rspotify::model::SimplifiedPlaylist) -> Self {

@@ -249,6 +249,7 @@ fn render_main_layout(
         PageType::CommandHelp => page::render_commands_help_page(frame, ui, rect),
         PageType::Logs => page::render_logs_page(frame, state, ui, rect),
         PageType::TopArtists => page::render_top_artists_page(is_active, frame, state, ui, rect),
+        PageType::Friends => page::render_friends_page(is_active, frame, state, ui, rect),
     }
 }
 

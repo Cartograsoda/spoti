@@ -10,10 +10,10 @@ use crate::{
     auth::AuthConfig,
     state::{
         store_data_into_file_cache, Album, AlbumId, Artist, ArtistId, Category, Context, ContextId,
-        Device, FileCacheKey, Item, ItemId, MemoryCaches, Playback, PlaybackMetadata, Playlist,
-        PlaylistFolderItem, PlaylistId, SearchResults, SharedState, Show, ShowId, Track, TrackId,
-        UserId, TTL_CACHE_DURATION, USER_LIKED_TRACKS_URI, USER_RECENTLY_PLAYED_TRACKS_URI,
-        USER_TOP_TRACKS_URI,
+        Device, FileCacheKey, FriendActivity, FriendFeed, Item, ItemId, MemoryCaches, Playback,
+        PlaybackMetadata, Playlist, PlaylistFolderItem, PlaylistId, SearchResults, SharedState,
+        Show, ShowId, Track, TrackId, UserId, TTL_CACHE_DURATION, USER_LIKED_TRACKS_URI,
+        USER_RECENTLY_PLAYED_TRACKS_URI, USER_TOP_TRACKS_URI,
     },
 };
 
@@ -724,6 +724,21 @@ impl AppClient {
                 let artists = self.current_user_top_artists().await?;
                 state.data.write().user_data.top_artists = artists;
             }
+            ClientRequest::GetFriendActivity => {
+                let friends = self.friend_activity().await;
+                let mut data = state.data.write();
+                let feed = &mut data.user_data.friend_activity;
+                match friends {
+                    Ok(friends) => *feed = FriendFeed::Ready(friends),
+                    Err(err) => {
+                        // a failed refresh keeps the last list on screen
+                        if !matches!(feed, FriendFeed::Ready(_)) {
+                            *feed = FriendFeed::Failed;
+                        }
+                        return Err(err);
+                    }
+                }
+            }
             ClientRequest::GetUserSavedAlbums => {
                 let albums = self.current_user_saved_albums().await?;
                 store_data_into_file_cache(
@@ -1148,6 +1163,81 @@ impl AppClient {
             )
             .await?;
         Ok(artists.into_iter().map(Artist::from).collect())
+    }
+
+    /// What the user's friends are listening to, most recent first.
+    ///
+    /// The Web API doesn't offer this, so it comes from the private endpoint the official
+    /// clients use, and can stop working without notice.
+    pub async fn friend_activity(&self) -> Result<Vec<FriendActivity>> {
+        // undocumented format, so anything not needed to show a row is optional
+        #[derive(Deserialize, Default)]
+        #[serde(default)]
+        struct Item {
+            uri: String,
+            name: String,
+        }
+        #[derive(Deserialize)]
+        struct Listened {
+            #[serde(default)]
+            uri: String,
+            name: String,
+            #[serde(default)]
+            album: Item,
+            #[serde(default)]
+            artist: Item,
+            context: Option<Item>,
+        }
+        #[derive(Deserialize)]
+        struct Friend {
+            timestamp: i64,
+            user: Item,
+            track: Listened,
+        }
+        #[derive(Deserialize)]
+        struct BuddyList {
+            friends: Vec<Friend>,
+        }
+
+        let session = self.spotify.session().await;
+        let body = session
+            .spclient()
+            .request_as_json(
+                &reqwest::Method::GET,
+                "/presence-view/v1/buddylist",
+                None,
+                None,
+            )
+            .await
+            .context("request friend activity")?;
+        let list: BuddyList = serde_json::from_slice(&body).context("parse friend activity")?;
+
+        let mut friends: Vec<_> = list
+            .friends
+            .into_iter()
+            .map(|friend| {
+                let track = friend.track;
+                let context = track
+                    .context
+                    .and_then(|c| Some((ContextId::from_uri(&c.uri)?, c.name)));
+                let (context, context_name) = match context {
+                    Some((id, name)) => (Some(id), name),
+                    None => (ContextId::from_uri(&track.album.uri), track.album.name),
+                };
+                FriendActivity {
+                    name: friend.user.name,
+                    track_id: TrackId::from_uri(&track.uri).ok().map(TrackId::into_static),
+                    track: track.name,
+                    artist: track.artist.name,
+                    context,
+                    context_name,
+                    at: chrono::DateTime::from_timestamp_millis(friend.timestamp)
+                        .unwrap_or_default(),
+                }
+            })
+            .collect();
+        friends.sort_by_key(|f| std::cmp::Reverse(f.at));
+        Ok(friends)
     }
 
     /// Get all playlists of the current user

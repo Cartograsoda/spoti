@@ -72,6 +72,11 @@ pub fn render_control_bar(
             on_tracks_page(&USER_RECENTLY_PLAYED_TRACKS_ID),
         ),
         ("Top", Command::TopTrackPage, page.is_top_page()),
+        (
+            "Friends",
+            Command::FriendActivityPage,
+            page.page_type() == PageType::Friends,
+        ),
         ("Queue", Command::Queue, page.page_type() == PageType::Queue),
         (
             "Lyrics",

@@ -1,6 +1,7 @@
 use command::CommandOrAction;
 
 use crate::command::{construct_album_actions, construct_playlist_actions, construct_show_actions};
+use crate::state::FriendFeed;
 
 use super::*;
 
@@ -32,6 +33,7 @@ pub fn handle_key_sequence_for_page(
             PageType::CommandHelp => Ok(handle_command_for_command_help_page(command, ui)),
             PageType::Logs => Ok(handle_command_for_logs_page(command, ui)),
             PageType::TopArtists => Ok(handle_command_for_top_artists_page(command, ui, state)),
+            PageType::Friends => handle_command_for_friends_page(command, client_pub, ui, state),
         },
         Some(CommandOrAction::Action(action, ActionTarget::SelectedItem)) => match page_type {
             PageType::Search => anyhow::bail!("page search type should already be handled!"),
@@ -602,6 +604,54 @@ fn handle_command_for_top_artists_page(
     let data = state.data.read();
     let artists = ui.search_filtered_items(&data.user_data.top_artists);
     window::handle_command_for_artist_list_window(command, &artists, &data, ui)
+}
+
+fn handle_command_for_friends_page(
+    command: Command,
+    client_pub: &flume::Sender<ClientRequest>,
+    ui: &mut UIStateGuard,
+    state: &SharedState,
+) -> Result<bool> {
+    if command == Command::Search {
+        ui.new_search_popup();
+        return Ok(true);
+    }
+    let data = state.data.read();
+    let FriendFeed::Ready(ref friends) = data.user_data.friend_activity else {
+        return Ok(false);
+    };
+    let friends = ui.search_filtered_items(friends);
+    let id = ui.current_page_mut().selected().unwrap_or_default();
+    let Some(friend) = friends.get(id) else {
+        return Ok(false);
+    };
+
+    let count = ui.count_prefix;
+    if handle_navigation_command(command, ui.current_page_mut(), id, friends.len(), count) {
+        return Ok(true);
+    }
+    match (command, &friend.track_id) {
+        (Command::ChooseSelected, Some(track_id)) => {
+            state.player.write().currently_playing_tracks_id = None;
+            client_pub.send(ClientRequest::PlayTrackWithRadio(track_id.clone()))?;
+        }
+        (Command::AddSelectedItemToQueue, Some(track_id)) => {
+            client_pub.send(ClientRequest::AddPlayableToQueue(track_id.clone().into()))?;
+        }
+        // the feed has no full track data for an action list, so this opens where it plays from
+        (Command::ChooseSelected | Command::ShowActionsOnSelectedItem, _) => {
+            let Some(context_id) = friend.context.clone() else {
+                return Ok(false);
+            };
+            ui.new_page(PageState::Context {
+                id: None,
+                context_page_type: ContextPageType::Browsing(context_id),
+                state: None,
+            });
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
 }
 
 fn handle_command_for_logs_page(command: Command, ui: &mut UIStateGuard) -> bool {

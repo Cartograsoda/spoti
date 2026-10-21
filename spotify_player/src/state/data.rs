@@ -5,7 +5,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::sync::LazyLock;
 
 use super::model::{
-    Album, Artist, Category, Context, ContextId, Id, Playlist, PlaylistFolderItem,
+    Album, Artist, Category, Context, ContextId, FriendActivity, Id, Playlist, PlaylistFolderItem,
     PlaylistFolderNode, SearchResults, Show, Track,
 };
 use super::Lyrics;
@@ -64,6 +64,15 @@ pub struct UserData {
     pub saved_shows: Vec<Show>,
     pub saved_albums: Vec<Album>,
     pub saved_tracks: HashMap<String, Track>,
+    pub friend_activity: FriendFeed,
+}
+
+#[derive(Debug)]
+pub enum FriendFeed {
+    Loading,
+    /// Most recent first
+    Ready(Vec<FriendActivity>),
+    Failed,
 }
 
 #[derive(Debug)]
@@ -204,6 +213,7 @@ impl UserData {
                 .unwrap_or_default(),
             saved_tracks: load_data_from_file_cache(FileCacheKey::SavedTracks, cache_folder)
                 .unwrap_or_default(),
+            friend_activity: FriendFeed::Loading,
         }
     }
 

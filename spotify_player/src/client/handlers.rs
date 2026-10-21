@@ -26,6 +26,7 @@ struct PlayerEventHandlerState {
     last_get_context: Instant,
     last_playback_refresh: Instant,
     last_queue_refresh: Option<(String, Instant)>,
+    last_friend_activity_refresh: Option<Instant>,
 }
 
 /// starts the client's request handler
@@ -117,6 +118,7 @@ fn report_action_end(state: &SharedState, id: u64, err: Option<&anyhow::Error>) 
 const SESSION_CHECK_INTERVAL: Duration = Duration::from_secs(1);
 const CONTEXT_REFRESH_THROTTLE: Duration = Duration::from_secs(5);
 const QUEUE_REFRESH_THROTTLE: Duration = Duration::from_secs(5);
+const FRIEND_ACTIVITY_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
 pub async fn start_session_watcher(state: SharedState, client: super::AppClient) {
     let mut interval = tokio::time::interval(SESSION_CHECK_INTERVAL);
@@ -269,6 +271,15 @@ fn handle_page_change_event(
                 }
             }
         }
+        // only polled while the page is open
+        PageState::Friends { .. }
+            if handler_state
+                .last_friend_activity_refresh
+                .is_none_or(|at| at.elapsed() >= FRIEND_ACTIVITY_REFRESH_INTERVAL) =>
+        {
+            client_pub.send(ClientRequest::GetFriendActivity)?;
+            handler_state.last_friend_activity_refresh = Some(Instant::now());
+        }
         _ => {}
     }
 
@@ -300,6 +311,7 @@ pub fn start_player_event_watcher(state: &SharedState, client_pub: &flume::Sende
         last_playback_refresh: Instant::now(),
         ended_playable_uri: None,
         last_queue_refresh: None,
+        last_friend_activity_refresh: None,
     };
 
     loop {

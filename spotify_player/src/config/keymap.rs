@@ -173,6 +173,10 @@ impl Default for KeymapConfig {
                     command: Command::TopArtistPage,
                 },
                 Keymap {
+                    key_sequence: "g f".into(),
+                    command: Command::FriendActivityPage,
+                },
+                Keymap {
                     key_sequence: "g r".into(),
                     command: Command::RecentlyPlayedTrackPage,
                 },
