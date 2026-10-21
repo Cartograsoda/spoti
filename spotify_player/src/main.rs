@@ -10,6 +10,8 @@ mod key;
 mod log_layer;
 #[cfg(feature = "media-control")]
 mod media_control;
+#[cfg(target_os = "windows")]
+mod own_window;
 mod playlist_folders;
 mod state;
 #[cfg(feature = "streaming")]
@@ -291,6 +293,11 @@ fn main() -> Result<()> {
 
     match args.subcommand() {
         None => {
+            #[cfg(target_os = "windows")]
+            if !args.get_flag("in-place") && own_window::relaunch()? {
+                return Ok(());
+            }
+
             // initialize the application's log
             let log_folder = config::get_config()
                 .app_config

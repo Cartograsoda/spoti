@@ -35,6 +35,7 @@ This file guides coding agents when working in this repository.
 | `cli/`                        | Unix socket server and client for inter-process CLI commands                |
 | `auth.rs`                     | OAuth scopes and librespot credential/session building                      |
 | `media_control.rs`            | OS media key integration via `souvlaki` (feature-gated)                     |
+| `own_window/`                 | Windows only: `setup-window`, reopening the TUI in its own Terminal window  |
 
 ### Concurrency model
 

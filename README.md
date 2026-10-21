@@ -25,6 +25,7 @@ Want more or fewer than 100? Set `top_tracks_limit` in `app.toml`.
 - **A random button.** Plays a random song from the list you're looking at, or from what's playing, or from your liked songs. For when you have 3,000 liked songs and zero decisions left in you.
 - **A queue that fills itself.** Pick a song from search, or paste a track link, and Spotify's recommendations for it line up behind it, like in the official app. No more silence after one song.
 - **Fewer rate limits.** Play, pause, skip, seek and volume go straight to the built-in player instead of taking a round trip through Spotify's servers. Your library loads from cache on startup when it's fresh, and bursts of refreshes get merged into one.
+- **Its own taskbar button on Windows.** One command and it stops hiding in the pile of terminal windows. See step 6 below.
 - **No silent blank pages.** If Spotify sends back a broken playlist or a page fails to load, the status line says so, instead of the app staring into the void forever.
 
 ![A playlist](docs/screenshots/playlist.png)
@@ -82,6 +83,31 @@ spotify_player
 ```
 
 One catch: Spotify doesn't let new apps read some things, like songs in other people's playlists or an artist's top tracks. Those requests quietly fall back to the shared ID, so they can still be slow sometimes. Your own playlists stay fast.
+
+**6. Windows: give it its own taskbar button (optional)**
+
+Windows Terminal stacks all its windows behind one taskbar button, so spoti ends up in a pile with every other terminal you have open, and sooner or later you close the wrong one. Run this once:
+
+```sh
+spotify_player setup-window
+```
+
+It downloads a portable copy of Windows Terminal from Microsoft's GitHub releases (about 11 MB, signature checked) into `%LOCALAPPDATA%\spoti`. From then on, starting spoti from Windows Terminal reopens it in its own window, with its own taskbar button and the same colours as the tab you started it from. Pin **Spoti** from the Start menu to put a green icon on that button. `--in-place` runs it in the current tab instead, and `setup-window --remove` undoes the whole thing.
+
+### Or let your coding agent do it
+
+Paste this into Claude Code, Codex, Cursor or whatever you use. It does the setup and only stops for the parts that need you: the Spotify dashboard and the browser login.
+
+```text
+Install spoti, a terminal Spotify client, from https://github.com/Cartograsoda/spoti on this machine, following the "Getting it running" section of its README.
+
+- If `cargo` isn't available, install Rust with rustup first.
+- Build with `cargo install --path spotify_player --locked --features image`, then copy the installed `spotify_player` binary to `spoti` (`spoti.exe` on Windows) in the same folder.
+- I need my own Spotify client ID. Walk me through creating an app at https://developer.spotify.com/dashboard (tick Web API only, redirect URI exactly `http://127.0.0.1:8989/login`), wait for me to paste the client ID, then set `client_id = "<id>"` in `~/.config/spotify-player/app.toml`, keeping anything already in that file.
+- Don't run `spoti authenticate` or `spoti` yourself, they're interactive. Tell me to run `spoti authenticate` in my own terminal and approve everything in the browser (it asks more than once).
+- On Windows, if I use Windows Terminal, run `spoti setup-window` and tell me to pin "Spoti" from the Start menu to the taskbar.
+- Finish by telling me to start it with `spoti`.
+```
 
 ## Keys worth knowing
 

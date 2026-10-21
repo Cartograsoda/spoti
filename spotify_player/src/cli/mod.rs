@@ -211,6 +211,14 @@ pub fn init_cli() -> anyhow::Result<clap::Command> {
                 .help("Override a config option (e.g. -o device.volume=80 -o theme=dracula)"),
         );
 
+    #[cfg(target_os = "windows")]
+    let cmd = cmd.subcommand(commands::init_setup_window_command()).arg(
+        clap::Arg::new("in-place")
+            .long("in-place")
+            .action(clap::ArgAction::SetTrue)
+            .help("Run in the current terminal, even after setup-window"),
+    );
+
     #[cfg(feature = "daemon")]
     let cmd = cmd.arg(
         clap::Arg::new("daemon")

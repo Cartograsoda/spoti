@@ -243,6 +243,18 @@ pub fn init_print_features_command() -> Command {
     Command::new("features").about("Print compiled in features")
 }
 
+#[cfg(target_os = "windows")]
+pub fn init_setup_window_command() -> Command {
+    Command::new("setup-window")
+        .about("Open the app in its own window with its own taskbar button, when started from Windows Terminal")
+        .arg(
+            Arg::new("remove")
+                .long("remove")
+                .action(ArgAction::SetTrue)
+                .help("Undo setup-window"),
+        )
+}
+
 pub fn init_lyrics_command() -> Command {
     add_id_or_name_group_optional(
         Command::new("lyrics").about(

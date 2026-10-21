@@ -209,6 +209,11 @@ pub fn handle_cli_subcommand(cmd: &str, args: &ArgMatches) -> Result<()> {
             print_features();
             std::process::exit(0);
         }
+        #[cfg(target_os = "windows")]
+        "setup-window" => {
+            crate::own_window::setup(args.get_flag("remove"))?;
+            std::process::exit(0);
+        }
         _ => {}
     }
 

@@ -78,6 +78,8 @@ pub fn run(state: &SharedState, mut terminal: Terminal) -> Result<()> {
             let mut ui = state.ui.lock();
             if !ui.is_running {
                 clean_up(terminal).context("clean up UI resources")?;
+                #[cfg(target_os = "windows")]
+                crate::own_window::print_setup_hint_once(&config::get_config().cache_folder);
                 std::process::exit(0);
             }
 
