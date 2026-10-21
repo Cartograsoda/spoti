@@ -1160,6 +1160,16 @@ fn render_artist_context_page_windows(
         false,
     );
 
+    if artist_data.1.is_empty() {
+        frame.render_widget(
+            Paragraph::new(
+                "Top tracks loading or unavailable from Spotify; browse albums or liked songs.",
+            )
+            .style(ui.theme.page_desc()),
+            top_tracks_rect,
+        );
+    }
+
     render_track_table(
         frame,
         liked_songs_rect,

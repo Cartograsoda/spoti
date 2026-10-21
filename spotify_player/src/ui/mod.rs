@@ -41,7 +41,6 @@ impl std::io::Write for FrameWriter {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        use std::io::Write as _;
         const NO_OPS: [&[u8]; 3] = [b"\x1b[m", b"\x1b[0m", b"\x1b[?25l"];
         let mut rest = self.frame.as_slice();
         while let Some(op) = NO_OPS.iter().find(|op| rest.starts_with(op)) {

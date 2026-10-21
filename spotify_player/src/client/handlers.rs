@@ -34,7 +34,16 @@ pub async fn start_client_handler(
     client: &super::AppClient,
     client_sub: &flume::Receiver<ClientRequest>,
 ) {
+    let context_requests = super::context_requests::ContextRequests::default();
     while let Ok(request) = client_sub.recv_async().await {
+        let mut context_request = if let ClientRequest::GetContext(context) = &request {
+            let Some(guard) = context_requests.begin(context.uri()) else {
+                continue;
+            };
+            Some(guard)
+        } else {
+            None
+        };
         let state = state.clone();
         let client = client.clone();
         let span = tracing::info_span!("client_request", request = ?request);
@@ -57,6 +66,9 @@ pub async fn start_client_handler(
                             .unwrap_or_default();
                         Err(anyhow::anyhow!("crashed: {reason}"))
                     });
+                if let Some(guard) = context_request.as_mut() {
+                    guard.complete(result.is_ok());
+                }
                 // page loads are background requests, so only show them when they fail
                 let status_id = status_id.or_else(|| {
                     (is_context && result.is_err())
