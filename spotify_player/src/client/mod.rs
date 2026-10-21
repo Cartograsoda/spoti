@@ -521,7 +521,19 @@ impl AppClient {
             if let (Some(shuffle), Some(playback)) = (shuffle, playback.as_mut()) {
                 playback.shuffle_state = shuffle;
             }
-            let device_id = playback.as_ref().and_then(|p| p.device_id.as_deref());
+            #[allow(unused_mut)]
+            let mut device_id = playback.as_ref().and_then(|p| p.device_id.clone());
+            // Before anything has played, Spotify has no active device and answers 404 unless it's
+            // told where to play (and the 404 sends the request on to the rate limited ncspot
+            // client), so play on this instance's own player
+            #[cfg(feature = "streaming")]
+            if device_id.is_none() {
+                let has_conn = self.stream_conn.lock().is_some();
+                if has_conn {
+                    device_id = Some(self.spotify.session().await.device_id().to_string());
+                }
+            }
+            let device_id = device_id.as_deref();
             self.start_playback(p, device_id).await?;
             // For some reasons, when starting a new playback, the integrated `spotify_player`
             // client doesn't respect the initial shuffle state, so we need to manually update the state
