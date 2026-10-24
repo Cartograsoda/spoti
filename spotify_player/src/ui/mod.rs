@@ -146,6 +146,16 @@ pub fn init_image_picker(state: &SharedState) -> Result<()> {
             .set_protocol_type(ratatui_image::picker::ProtocolType::Iterm2);
         tracing::info!("Detected iTerm2; overriding image protocol to native iTerm2");
     }
+
+    // Windows Terminal's memory grows by gigabytes an hour while it shows a Sixel cover.
+    #[cfg(target_os = "windows")]
+    if ui.picker.protocol_type() == ratatui_image::picker::ProtocolType::Sixel
+        && crate::own_window::in_windows_terminal()
+    {
+        ui.picker
+            .set_protocol_type(ratatui_image::picker::ProtocolType::Halfblocks);
+        tracing::info!("Detected Windows Terminal; drawing the cover with half blocks instead of Sixel");
+    }
     tracing::info!("Image protocol: {:?}", ui.picker.protocol_type());
     Ok(())
 }

@@ -123,7 +123,7 @@ pub fn print_setup_hint_once(cache_folder: &Path) {
 /// Tabs that Windows Terminal opens itself have `WT_SESSION` set. Consoles that Windows starts
 /// and then hands over to it (cmd from the Start menu, when Terminal is the default) don't, but
 /// their hidden console window is owned by the Terminal's window.
-fn in_windows_terminal() -> bool {
+pub(crate) fn in_windows_terminal() -> bool {
     std::env::var_os("WT_SESSION").is_some()
         || console_owner_exe().is_some_and(|exe| {
             exe.file_name()
