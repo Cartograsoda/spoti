@@ -1,5 +1,6 @@
 use crate::{client::AppClient, config, state::SharedState};
 use anyhow::Context;
+use librespot_audio::AudioFetchParams;
 use librespot_connect::{ConnectConfig, Spirc};
 use librespot_core::authentication::Credentials;
 use librespot_core::config::DeviceType;
@@ -193,6 +194,13 @@ pub async fn new_connection(
         normalisation: device.normalization,
         ..Default::default()
     };
+
+    // librespot only reads 5s ahead, so a short network stall cuts playback off.
+    // Fails harmlessly when a reconnect has already set it.
+    let _ = AudioFetchParams::set(AudioFetchParams {
+        read_ahead_during_playback: std::time::Duration::from_secs(20),
+        ..Default::default()
+    });
 
     tracing::info!(
         "Initializing a new integrated player with device_id={}",
