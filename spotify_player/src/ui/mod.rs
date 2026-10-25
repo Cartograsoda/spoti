@@ -41,7 +41,15 @@ impl std::io::Write for FrameWriter {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        const NO_OPS: [&[u8]; 3] = [b"\x1b[m", b"\x1b[0m", b"\x1b[?25l"];
+        // colour resets are what ratatui-crossterm ends every draw with
+        const NO_OPS: [&[u8]; 6] = [
+            b"\x1b[39m",
+            b"\x1b[49m",
+            b"\x1b[59m",
+            b"\x1b[m",
+            b"\x1b[0m",
+            b"\x1b[?25l",
+        ];
         let mut rest = self.frame.as_slice();
         while let Some(op) = NO_OPS.iter().find(|op| rest.starts_with(op)) {
             rest = &rest[op.len()..];
@@ -145,16 +153,6 @@ pub fn init_image_picker(state: &SharedState) -> Result<()> {
         ui.picker
             .set_protocol_type(ratatui_image::picker::ProtocolType::Iterm2);
         tracing::info!("Detected iTerm2; overriding image protocol to native iTerm2");
-    }
-
-    // Windows Terminal's memory grows by gigabytes an hour while it shows a Sixel cover.
-    #[cfg(target_os = "windows")]
-    if ui.picker.protocol_type() == ratatui_image::picker::ProtocolType::Sixel
-        && crate::own_window::in_windows_terminal()
-    {
-        ui.picker
-            .set_protocol_type(ratatui_image::picker::ProtocolType::Halfblocks);
-        tracing::info!("Detected Windows Terminal; drawing the cover with half blocks instead of Sixel");
     }
     tracing::info!("Image protocol: {:?}", ui.picker.protocol_type());
     Ok(())
