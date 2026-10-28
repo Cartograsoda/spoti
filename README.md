@@ -41,9 +41,15 @@ Want more or fewer than 100? Set `top_tracks_limit` in `app.toml`.
 
 ## Getting it running
 
-You need Spotify Premium (streaming doesn't work without it) and [Rust](https://rustup.rs). Five minutes, tops.
+You need Spotify Premium (streaming doesn't work without it). Five minutes, tops.
 
-**1. Build it**
+**1. Get it**
+
+Download the archive for your system from [Releases](https://github.com/Cartograsoda/spoti/releases/latest), unzip it, and put `spoti` (`spoti.exe` on Windows) somewhere on your PATH. On macOS, run `xattr -d com.apple.quarantine spoti` once, or Gatekeeper refuses to start it.
+
+Downloaded builds keep themselves up to date: every start checks for a new release in the background and installs it for the next launch. `spoti update` does it right away, and `enable_auto_update = false` in `app.toml` turns it off.
+
+Or build it yourself with [Rust](https://rustup.rs):
 
 ```sh
 git clone https://github.com/Cartograsoda/spoti
@@ -51,7 +57,7 @@ cd spoti
 cargo install --path spotify_player --locked --features image
 ```
 
-`--features image` gets you album covers in the terminal. The binary is called `spotify_player`. I copied mine to `spoti` because life is short.
+`--features image` gets you album covers in the terminal. The binary is called `spotify_player`. I copied mine to `spoti` because life is short. Builds from source don't update themselves.
 
 **2. Make your own Spotify client ID (don't skip this)**
 
@@ -72,7 +78,7 @@ client_id = "your-client-id"
 **4. Log in**
 
 ```sh
-spotify_player authenticate
+spoti authenticate
 ```
 
 Approve everything in the browser. It asks more than once; that's normal.
@@ -80,7 +86,7 @@ Approve everything in the browser. It asks more than once; that's normal.
 **5. Play something**
 
 ```sh
-spotify_player
+spoti
 ```
 
 One catch: Spotify doesn't let new apps read some things, like songs in other people's playlists or an artist's top tracks. Those requests quietly fall back to the shared ID, so they can still be slow sometimes. Your own playlists stay fast.
@@ -90,7 +96,7 @@ One catch: Spotify doesn't let new apps read some things, like songs in other pe
 Windows Terminal stacks all its windows behind one taskbar button, so spoti ends up in a pile with every other terminal you have open, and sooner or later you close the wrong one. Run this once:
 
 ```sh
-spotify_player setup-window
+spoti setup-window
 ```
 
 It downloads a portable copy of Windows Terminal from Microsoft's GitHub releases (about 11 MB, signature checked) into `%LOCALAPPDATA%\spoti`. From then on, starting spoti from Windows Terminal reopens it in its own window, with its own taskbar button and the same colours as the tab you started it from. Pin **Spoti** from the Start menu to put a green icon on that button. `--in-place` runs it in the current tab instead, and `setup-window --remove` undoes the whole thing.

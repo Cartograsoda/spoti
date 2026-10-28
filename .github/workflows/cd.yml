@@ -5,11 +5,28 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
 jobs:
+  # The release stays a draft until every target is uploaded, so the self-updater never sees a
+  # release that is missing the archive for its platform.
+  create-release:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create draft release
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null ||
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --generate-notes
+
   publish:
     name: Publishing ${{ matrix.target }}
+    needs: create-release
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container }}
 
     strategy:
       fail-fast: false
@@ -46,7 +63,7 @@ jobs:
         run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Build
-        run: ${{ matrix.cross_arch && 'cross' || 'cargo' }} build --locked --release --target ${{ matrix.target }}
+        run: ${{ matrix.cross_arch && 'cross' || 'cargo' }} build --locked --release --target ${{ matrix.target }} -p spotify_player --features image,self-update
 
       - name: Package
         shell: bash
@@ -54,18 +71,25 @@ jobs:
           cd target/${{ matrix.target }}/release
           case ${{ matrix.target }} in
           *-pc-windows-*)
-            7z -y a spotify_player-${{ matrix.target }}.zip spotify_player.exe
-            sha256sum spotify_player-${{ matrix.target }}.zip > spotify_player-${{ matrix.target }}.sha256
+            mv spotify_player.exe spoti.exe
+            7z -y a spoti-${{ matrix.target }}.zip spoti.exe
+            sha256sum spoti-${{ matrix.target }}.zip > spoti-${{ matrix.target }}.sha256
             ;;
           *)
-            tar czvf spotify_player-${{ matrix.target }}.tar.gz spotify_player
-            shasum -a 256 spotify_player-${{ matrix.target }}.tar.gz > spotify_player-${{ matrix.target }}.sha256
+            mv spotify_player spoti
+            tar czvf spoti-${{ matrix.target }}.tar.gz spoti
+            shasum -a 256 spoti-${{ matrix.target }}.tar.gz > spoti-${{ matrix.target }}.sha256
             ;;
           esac;
 
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: target/${{ matrix.target }}/release/spotify_player-*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload
+        shell: bash
+        run: gh release upload "$GITHUB_REF_NAME" target/${{ matrix.target }}/release/spoti-${{ matrix.target }}.* --repo "$GITHUB_REPOSITORY" --clobber
+
+  publish-release:
+    name: Publish release
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
