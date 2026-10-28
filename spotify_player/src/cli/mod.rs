@@ -219,6 +219,9 @@ pub fn init_cli() -> anyhow::Result<clap::Command> {
             .help("Run in the current terminal, even after setup-window"),
     );
 
+    #[cfg(feature = "self-update")]
+    let cmd = cmd.subcommand(commands::init_update_command());
+
     #[cfg(feature = "daemon")]
     let cmd = cmd.arg(
         clap::Arg::new("daemon")

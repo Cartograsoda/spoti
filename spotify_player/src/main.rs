@@ -18,6 +18,8 @@ mod state;
 mod streaming;
 mod token;
 mod ui;
+#[cfg(feature = "self-update")]
+mod updater;
 mod utils;
 
 use anyhow::{Context, Result};
@@ -313,6 +315,11 @@ fn main() -> Result<()> {
 
             // log the application's configurations
             tracing::info!("Configurations: {:?}", config::get_config());
+
+            #[cfg(feature = "self-update")]
+            if config::get_config().app_config.enable_auto_update {
+                updater::spawn_background_update()?;
+            }
 
             let is_daemon;
 

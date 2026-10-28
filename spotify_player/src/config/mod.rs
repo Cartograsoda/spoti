@@ -123,6 +123,9 @@ pub struct AppConfig {
     #[cfg(feature = "notify")]
     pub enable_notify: bool,
 
+    #[cfg(feature = "self-update")]
+    pub enable_auto_update: bool,
+
     pub enable_cover_image_cache: bool,
 
     pub device: DeviceConfig,
@@ -390,6 +393,9 @@ impl Default for AppConfig {
 
             #[cfg(feature = "notify")]
             enable_notify: true,
+
+            #[cfg(feature = "self-update")]
+            enable_auto_update: true,
 
             enable_cover_image_cache: true,
 

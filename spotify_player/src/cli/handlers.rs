@@ -214,6 +214,16 @@ pub fn handle_cli_subcommand(cmd: &str, args: &ArgMatches) -> Result<()> {
             crate::own_window::setup(args.get_flag("remove"))?;
             std::process::exit(0);
         }
+        #[cfg(feature = "self-update")]
+        "update" => {
+            let status = crate::updater::update(true)?;
+            if status.is_updated() {
+                println!("Updated to v{}", status.version());
+            } else {
+                println!("Already up to date (v{})", status.version());
+            }
+            std::process::exit(0);
+        }
         _ => {}
     }
 

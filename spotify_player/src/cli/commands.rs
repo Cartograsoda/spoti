@@ -255,6 +255,11 @@ pub fn init_setup_window_command() -> Command {
         )
 }
 
+#[cfg(feature = "self-update")]
+pub fn init_update_command() -> Command {
+    Command::new("update").about("Update to the newest release")
+}
+
 pub fn init_lyrics_command() -> Command {
     add_id_or_name_group_optional(
         Command::new("lyrics").about(
