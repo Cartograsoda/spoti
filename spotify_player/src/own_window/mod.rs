@@ -123,7 +123,7 @@ pub fn print_setup_hint_once(cache_folder: &Path) {
 /// Tabs that Windows Terminal opens itself have `WT_SESSION` set. Consoles that Windows starts
 /// and then hands over to it (cmd from the Start menu, when Terminal is the default) don't, but
 /// their hidden console window is owned by the Terminal's window.
-pub(crate) fn in_windows_terminal() -> bool {
+fn in_windows_terminal() -> bool {
     std::env::var_os("WT_SESSION").is_some()
         || console_owner_exe().is_some_and(|exe| {
             exe.file_name()
@@ -170,6 +170,11 @@ fn console_owner_exe() -> Option<PathBuf> {
 
 /// Copies the Store Terminal's settings over the portable one's, so the window keeps the user's
 /// colours and fonts. Best effort: stale settings only cost looks.
+///
+/// The copy also switches the window to the Direct2D renderer. Under the default Direct3D one,
+/// Windows Terminal can get stuck redrawing nonstop while spoti sits idle, and on an Intel iGPU
+/// every redraw leaks graphics memory (4 MB/s, gigabytes within the hour). Settings the user
+/// wrote come later in the file, so their own `rendering.graphicsAPI` still wins.
 fn sync_terminal_settings(terminal: &Path) {
     let Some(local) = dirs_next::data_local_dir() else {
         return;
@@ -187,12 +192,16 @@ fn sync_terminal_settings(terminal: &Path) {
             .join("settings.json")
     })
     .find(|path| path.exists());
-    if let Some(source) = source {
-        let _ = std::fs::copy(
-            source,
-            terminal.with_file_name("settings").join("settings.json"),
-        );
-    }
+    let Some(settings) = source.and_then(|source| std::fs::read_to_string(source).ok()) else {
+        return;
+    };
+    let Some((head, body)) = settings.split_once('{') else {
+        return;
+    };
+    let _ = std::fs::write(
+        terminal.with_file_name("settings").join("settings.json"),
+        format!("{head}{{\n    \"rendering.graphicsAPI\": \"direct2d\",{body}"),
+    );
 }
 
 /// The `defaultProfile` of the synced settings. Searched for rather than parsed, since the file
